@@ -112,8 +112,13 @@ def initialize() {
 private buildActivityMap() {
     def resp = []
     def today = new Date()
-    def then = today - 1
     log.debug "today " + today
+    def offsetStr = settings.timeRange
+    if (!offsetStr) {
+        offsetStr = "24:00"
+    }
+    log.debug "offsetStr " + offsetStr
+    def then = new Date(today.time + timeOffset("-" + offsetStr))
     log.debug "then " + then
     if(actuators) {
         actuators.each {
@@ -304,6 +309,13 @@ private mainPage() {
                 }
         }
         
+        section("Settings") {
+            input "timeRange", "text", title: "Time Range to display", description: "Time range in the form hh:mm (hh must be 1 or more)", required: false
+        }
+        section([mobileOnly:true], "Options") {
+            label(title: "Assign a name (optional)", required: false)
+        }
+
         section("Version Information") {
             paragraph "Activity Viewer " + version()
         }
