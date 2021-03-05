@@ -130,6 +130,12 @@ private buildActivityMap() {
         resp << it?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
+    if(otherdevices) {
+        otherdevices.each {
+        resp << it?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+        //resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+        }
+    }
     //if(location) {
     //    def today = new Date()
     //    def then = today - 1
@@ -364,7 +370,13 @@ def devicesPage() {
                 title: "Which Sensors?",
                 multiple: true,
                 hideWhenEmpty: false,
-                required: false             
+                required: false
+            input "otherdevices", "capability.*",
+                title: "Additional devices not found above (e.g. virtual)?",
+                multiple: true,
+                hideWhenEmpty: false,
+                required: false
+
         }
     }
 }
