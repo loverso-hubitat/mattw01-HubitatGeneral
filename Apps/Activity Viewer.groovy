@@ -122,24 +122,27 @@ private buildActivityMap() {
     log.debug "then " + then
     if(actuators) {
         actuators.each {
-        resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            log.debug "act " + it.currentValue("switch") //jlv
+            resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
     if(sensors) {
         sensors.each {
-        resp << it?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            resp << it?.eventsBetween(then, today, [max: 200])?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
     if(otherdevices) {
         otherdevices.each {
-        resp << it?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
-        //resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            log.debug "od " + it + it.id //jlv
+            //resp << [id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value] //jlv
+            resp << it?.eventsBetween(then, today, [max: 200])?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            //resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
     //if(location) {
     //    def today = new Date()
     //    def then = today - 1
-    //    resp << location?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+    //    resp << location?.eventsBetween(then, today, [max: 200])?.collect{[displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
     //}
     resp.flatten().sort{ it.date }
 }
@@ -156,12 +159,13 @@ def buildTimeline() {
         checkTimelineEvent(timeline, deviceState, it, 'contact',  'open',    'closed')
         checkTimelineEvent(timeline, deviceState, it, 'presence', 'present', 'not present')
     }
-    
     // Clean up incomplete events
     deviceState.each {
+        log.debug "incomplete " + it //jlv
         if(it?.value) {
-            if(it.value.displayName)
+            if(it.value.displayName) {
                 timeline << [ name: it.value.displayName, start: it.value.start, end: new Date(now()) ]
+            }
         }
     }
     timeline
@@ -187,7 +191,7 @@ def checkTimelineEvent(timeline, deviceState, currentEvent, type, startValue, en
             }
         }
     }
-}  
+}
 
 def getTimeline() {
     
@@ -316,7 +320,7 @@ private mainPage() {
         }
         
         section("Settings") {
-            input "timeRange", "text", title: "Time Range to display", description: "Time range in the form hh:mm (hh must be 1 or more)", required: false
+            input "timeRange", "text", title: "Time Range to display (24:00 default)", description: "Time range in the form hh:mm (hh must be 1 or more)", required: false
         }
         section([mobileOnly:true], "Options") {
             label(title: "Assign a name (optional)", required: false)
