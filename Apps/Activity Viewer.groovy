@@ -112,7 +112,14 @@ def initialize() {
 private buildActivityMap() {
     def resp = []
     def today = new Date()
-    def then = timeToday(today.format("HH:mm"), TimeZone.getTimeZone('UTC')) - 1
+    log.debug "today " + today
+    def offsetStr = settings.timeRange
+    if (!offsetStr) {
+        offsetStr = "24:00"
+    }
+    log.debug "offsetStr " + offsetStr
+    def then = new Date(today.time + timeOffset("-" + offsetStr))
+    log.debug "then " + then
     if(actuators) {
         actuators.each {
         resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
@@ -123,9 +130,15 @@ private buildActivityMap() {
         resp << it?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
+    if(otherdevices) {
+        otherdevices.each {
+        resp << it?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+        //resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+        }
+    }
     //if(location) {
     //    def today = new Date()
-    //    def then = timeToday(today.format("HH:mm"), TimeZone.getTimeZone('UTC')) - 1
+    //    def then = today - 1
     //    resp << location?.eventsBetween(then, today, [max: 200])?.collect{[description: it.description, descriptionText: it.descriptionText, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
     //}
     resp.flatten().sort{ it.date }
@@ -302,6 +315,9 @@ private mainPage() {
                 }
         }
         
+        section("Settings") {
+            input "timeRange", "text", title: "Time Range to display", description: "Time range in the form hh:mm (hh must be 1 or more)", required: false
+        }
         section([mobileOnly:true], "Options") {
             label(title: "Assign a name (optional)", required: false)
         }
@@ -354,7 +370,13 @@ def devicesPage() {
                 title: "Which Sensors?",
                 multiple: true,
                 hideWhenEmpty: false,
-                required: false             
+                required: false
+            input "otherdevices", "capability.*",
+                title: "Additional devices not found above (e.g. virtual)?",
+                multiple: true,
+                hideWhenEmpty: false,
+                required: false
+
         }
     }
 }
