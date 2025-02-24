@@ -109,6 +109,23 @@ def updated() {
 def initialize() {
 }
 
+def checkDevState(resp, dev, state, on, off) {
+//    log.debug "checkDevState dev $dev $state = " + dev.currentValue(state)
+    if (dev.currentValue(state) == on) {
+        resp << [name: state, value: on]
+    }
+}
+
+def checkAlreadyState(dev) {
+    def resp = []
+//    return resp
+    checkDevState(resp, dev, 'motion',   'active', 'inactive')
+    checkDevState(resp, dev, 'switch',   'on',      'off')
+    checkDevState(resp, dev, 'contact',  'open',    'closed')
+    checkDevState(resp, dev, 'presence', 'present', 'not present')
+    return resp
+}
+
 private buildActivityMap() {
     def resp = []
     def today = new Date()
@@ -122,23 +139,45 @@ private buildActivityMap() {
     log.debug "then " + then
     if(actuators) {
         actuators.each {
-            log.debug "act " + it.currentValue("switch") //jlv
-            resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            def devid = it.id
+            def already = checkAlreadyState(it)
+            if (already) {
+                def dev = it
+//                log.debug "ALREADY " + already
+                already.each {
+                    resp << [id: devid, displayName: dev.displayName, date: then, name: it.name, value: it.value]
+                }
+            }
+//            log.debug it
+            resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[id: devid, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
+//    log.debug "resp " + resp
     if(sensors) {
         sensors.each {
-            resp << it?.eventsBetween(then, today, [max: 200])?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            def devid = it.id
+            resp << it?.eventsBetween(then, today, [max: 200])?.collect{[id: devid, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
     if(otherdevices) {
         otherdevices.each {
-            log.debug "od " + it + it.id //jlv
-            //resp << [id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value] //jlv
-            resp << it?.eventsBetween(then, today, [max: 200])?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
-            //resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[id: it.id, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            def devid = it.id
+            log.debug "od $it $devid" //jlv
+            def already = checkAlreadyState(it)
+            if (already) {
+                def dev = it
+//                log.debug "ALREADY " + already
+                already.each {
+                    resp << [id: devid, displayName: dev.displayName, date: then, name: it.name, value: it.value]
+                }
+            }
+
+            //resp << [id: devid, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value] //jlv
+            resp << it?.eventsBetween(then, today, [max: 200])?.collect{[id: devid, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
+            //resp << it?.eventsBetween(then, today, [max: 200])?.findAll{"$it.source" == "DEVICE"}?.collect{[id: devid, displayName: it.displayName, date: it.date, name: it.name, unit: it.unit, source: it.source, value: it.value]}
         }
     }
+//    log.debug "final " + resp
     //if(location) {
     //    def today = new Date()
     //    def then = today - 1
@@ -164,7 +203,7 @@ def buildTimeline() {
         log.debug "incomplete " + it //jlv
         if(it?.value) {
             if(it.value.displayName) {
-                timeline << [ name: it.value.displayName, start: it.value.start, end: new Date(now()) ]
+                timeline << [ id: it.value.id, name: it.value.displayName, start: it.value.start, end: new Date(now()) ]
             }
         }
     }
@@ -178,7 +217,7 @@ def checkTimelineEvent(timeline, deviceState, currentEvent, type, startValue, en
     if(currentEvent.name == type) {
         // Check if this matches the start value (ie motion, on)
         if(currentEvent.value == startValue) {
-            deviceState[mapBase] = [ displayName : currentEvent.displayName, 
+            deviceState[mapBase] = [ id: currentEvent.id, displayName: currentEvent.displayName, 
                                     value: currentEvent.value, start: currentEvent.date ]
         }
         // Check if this matches the end value (ie inactive, off)
@@ -186,7 +225,7 @@ def checkTimelineEvent(timeline, deviceState, currentEvent, type, startValue, en
             // Check if we have a start value
             if(deviceState[mapBase]?.value == startValue) {
                 // Make a new timeline event!
-                timeline << [ name: currentEvent.displayName, start: deviceState[mapBase].start, end: currentEvent.date ]
+                timeline << [ id: currentEvent.id, name: currentEvent.displayName, start: deviceState[mapBase].start, end: currentEvent.date ]
                 deviceState[mapBase] = null
             }
         }
@@ -214,7 +253,7 @@ def getTimeline() {
             dataTable.addRows([
     """
     for(def i = 0; i < timeline.size(); i++) {
-        html += "[ '${timeline[i].name}', ${getDateString(timeline[i].start)}, ${getDateString(timeline[i].end)} ]"
+        html += "[ '${timeline[i].name} ${timeline[i].id}', ${getDateString(timeline[i].start)}, ${getDateString(timeline[i].end)} ]"
         if(i < timeline.size() - 1)
         html += ","
     }
@@ -261,7 +300,7 @@ def getActivity(){
     </thead><tbody>"""
     finalEvents.each {
         if(!filterEvent(it))
-        html += "<tr><td class=\"dateCell\">$it.date</td><td class=\"dateCell\">$it.displayName</td><td>$it.name</td><td>$it.value</td></tr>"
+            html += "<tr><td class=\"dateCell\">$it.date</td><td class=\"dateCell\"><a href=\"/device/edit/$it.id\">$it.displayName</a></td><td>$it.name</td><td>$it.value $it.unit</td></tr>"
     }
     html += "</tbody></table>"
     html += """
